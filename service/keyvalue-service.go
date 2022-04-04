@@ -2,7 +2,9 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/madhukar-m-mallia/go-api/entity"
 )
@@ -14,7 +16,7 @@ type KeyValueService interface {
 }
 
 type keyValueService struct {
-	keyValues []entity.KeyValue
+	keyValues sync.Map
 }
 
 func New() KeyValueService {
@@ -25,19 +27,19 @@ func (service *keyValueService) Set(keyVal entity.KeyValue) (entity.KeyValue, er
 	if keyVal.Key == "" || keyVal.Value == "" {
 		return entity.KeyValue{}, errors.New("Improper data sent")
 	} else {
-		service.keyValues = append(service.keyValues, keyVal)
+		service.keyValues.Store(keyVal.Key, keyVal.Value)
 		return keyVal, nil
 	}
 }
 
 func (service *keyValueService) FindOne(key string) (string, error) {
 	if key != "" {
-		for _, keyVal := range service.keyValues {
-			if keyVal.Key == key {
-				return keyVal.Key + "-" + keyVal.Value, nil
-			}
+		value, err := service.keyValues.Load(key)
+		if err != true {
+			return "", errors.New("Key not found")
 		}
-		return "", errors.New("Key not found")
+
+		return fmt.Sprintf("%v", value), nil
 	} else {
 		return "", errors.New("Empty key sent")
 	}
@@ -59,31 +61,32 @@ func (service *keyValueService) Search(key string, searchType string) ([]string,
 	}
 }
 
-func getValueFromCache(keyValues []entity.KeyValue, key string) (string, error) {
-	for _, keyVal := range keyValues {
-		if keyVal.Key == key {
-			return keyVal.Key + "-" + keyVal.Value, nil
-		}
+func getValueFromCache(keyValues sync.Map, key string) (string, error) {
+	value, err := keyValues.Load(key)
+	if err != true {
+		return "", errors.New("Key not found")
 	}
-	return "", errors.New("Key not found")
+	return fmt.Sprint(value), nil
 }
 
-func getAllValueFromCacheStartsWith(keyValues []entity.KeyValue, key string) []string {
+func getAllValueFromCacheStartsWith(keyValues sync.Map, key string) []string {
 	keys := []string{}
-	for _, keyVal := range keyValues {
-		if strings.HasPrefix(keyVal.Key+"-"+keyVal.Value, key) {
-			keys = append(keys, keyVal.Key+"-"+keyVal.Value)
+	keyValues.Range(func(k, v interface{}) bool {
+		if strings.HasPrefix(fmt.Sprint(k)+"-"+fmt.Sprint(v), key) {
+			keys = append(keys, fmt.Sprint(k)+"-"+fmt.Sprint(v))
 		}
-	}
+		return true
+	})
 	return keys
 }
 
-func getAllValueFromCacheEndsWith(keyValues []entity.KeyValue, key string) []string {
+func getAllValueFromCacheEndsWith(keyValues sync.Map, key string) []string {
 	keys := []string{}
-	for _, keyVal := range keyValues {
-		if strings.HasSuffix(keyVal.Key+"-"+keyVal.Value, key) {
-			keys = append(keys, keyVal.Key+"-"+keyVal.Value)
+	keyValues.Range(func(k, v interface{}) bool {
+		if strings.HasSuffix(fmt.Sprint(k)+"-"+fmt.Sprint(v), key) {
+			keys = append(keys, fmt.Sprint(k)+"-"+fmt.Sprint(v))
 		}
-	}
+		return true
+	})
 	return keys
 }

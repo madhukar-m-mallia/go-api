@@ -14,5 +14,5 @@ air
 ```sh
 git clone github.com/madhukar-m-mallia/go-api
 cd go-api
-docker build -t go-ap .
+docker build -t go-api .
 ```
